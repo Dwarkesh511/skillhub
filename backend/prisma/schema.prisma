@@ -1,0 +1,178 @@
+// Prisma Schema for SkillHub E-Learning Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+enum Level {
+  Beginner
+  Intermediate
+  Advanced
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+}
+
+model User {
+  id           String           @id @default(uuid())
+  name         String
+  email        String           @unique
+  passwordHash String
+  role         Role             @default(STUDENT)
+  avatar       String?
+  phone        String?
+  bio          String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  courses        Course[]         @relation("InstructorCourses")
+  enrollments    Enrollment[]
+  bookmarks      Bookmark[]
+  lessonProgress LessonProgress[]
+  certificates   Certificate[]
+
+  @@index([email])
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  courses Course[]
+
+  @@index([slug])
+}
+
+model Course {
+  id           Int      @id @default(autoincrement())
+  title        String
+  slug         String   @unique
+  description  String
+  thumbnail    String
+  instructorId String
+  instructor   User     @relation("InstructorCourses", fields: [instructorId], references: [id])
+  categoryId   Int
+  category     Category @relation(fields: [categoryId], references: [id])
+  level        Level    @default(Beginner)
+  duration     String   @default("8 Hours")
+  price        Float    @default(0)
+  rating       Float    @default(4.8)
+  totalReviews Int      @default(120)
+  language     String   @default("English")
+  skills       String[]
+  featured     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  modules      Module[]
+  enrollments  Enrollment[]
+  bookmarks    Bookmark[]
+  certificates Certificate[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([instructorId])
+}
+
+model Module {
+  id          Int      @id @default(autoincrement())
+  courseId    Int
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  order       Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lessons Lesson[]
+}
+
+model Lesson {
+  id          Int      @id @default(autoincrement())
+  moduleId    Int
+  module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  videoUrl    String?
+  duration    String?
+  order       Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  progressRecords LessonProgress[]
+}
+
+model Enrollment {
+  id                 Int              @id @default(autoincrement())
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId           Int
+  course             Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status             EnrollmentStatus @default(ACTIVE)
+  progressPercentage Float            @default(0.0)
+  lastAccessedAt     DateTime?
+  enrolledAt         DateTime         @default(now())
+  completedAt        DateTime?
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+model Bookmark {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  Int
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, courseId])
+  @@index([userId])
+}
+
+model LessonProgress {
+  id             Int      @id @default(autoincrement())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId       Int
+  lesson         Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completed      Boolean  @default(true)
+  completedAt    DateTime @default(now())
+  lastAccessedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+}
+
+model Certificate {
+  id                String   @id @default(uuid())
+  certificateNumber String   @unique
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId          Int
+  course            Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  issuedAt          DateTime @default(now())
+  pdfUrl            String?
+
+  @@unique([userId, courseId])
+}
