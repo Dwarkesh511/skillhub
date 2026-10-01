@@ -83,10 +83,11 @@ export const login = async (req, res, next) => {
     );
 
     // Set HttpOnly cookie
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('skillhub_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
@@ -105,9 +106,11 @@ export const login = async (req, res, next) => {
 
 export const logout = async (req, res, next) => {
   try {
+    const isProduction = process.env.NODE_ENV === 'production';
     res.clearCookie('skillhub_token', {
       httpOnly: true,
-      sameSite: 'lax'
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax'
     });
 
     return res.status(200).json({

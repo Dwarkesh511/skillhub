@@ -22,18 +22,31 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const HOST = '0.0.0.0';
 
-const allowedOrigins = [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000'];
+const CLIENT_URL = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  CLIENT_URL
+];
 
 // CORS Middleware Configuration
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (like mobile apps, curl, or node test scripts)
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow server-to-server requests, curl, or node test scripts (no origin header)
+    if (!origin) return callback(null, true);
+
+    const isAllowed = allowedOrigins.includes(origin) ||
+      (process.env.CLIENT_URL && origin === process.env.CLIENT_URL) ||
+      (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL);
+
+    if (isAllowed || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
-      callback(null, true); // Permissive in dev to avoid CORS blockage
+      callback(new Error(`CORS error: Origin ${origin} not allowed`));
     }
   },
   credentials: true
@@ -64,10 +77,10 @@ app.use(errorHandler);
 
 // Start Express Server conditionally if not imported for testing
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`🚀 SkillHub Backend running on http://localhost:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 SkillHub Backend running on http://${HOST}:${PORT}`);
     console.log(`🏥 Health Check URL: http://localhost:${PORT}/api/health`);
-    console.log(`🌐 Configured CORS Origin: ${FRONTEND_URL}`);
+    console.log(`🌐 Configured Client Origin: ${CLIENT_URL}`);
   });
 }
 
