@@ -24,33 +24,48 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
 
-const CLIENT_URL = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+// Enable trust proxy for Render / Vercel reverse proxies (crucial for HTTPS & HttpOnly SameSite=None cookies)
+app.set('trust proxy', 1);
+
+const cleanUrl = (url) => (url ? url.trim().replace(/\/$/, '') : '');
+
+const CLIENT_URL = cleanUrl(process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173');
 
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'http://127.0.0.1:5173',
   CLIENT_URL
-];
+].map(cleanUrl).filter(Boolean);
 
-// CORS Middleware Configuration
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
-    // Allow server-to-server requests, curl, or node test scripts (no origin header)
+    // Allow server-to-server requests, Postman, health checks (no origin header)
     if (!origin) return callback(null, true);
 
-    const isAllowed = allowedOrigins.includes(origin) ||
-      (process.env.CLIENT_URL && origin === process.env.CLIENT_URL) ||
-      (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL);
+    const cleanOrigin = cleanUrl(origin);
+
+    const isAllowed = 
+      allowedOrigins.includes(cleanOrigin) ||
+      cleanOrigin.endsWith('.vercel.app') ||
+      (process.env.CLIENT_URL && cleanOrigin === cleanUrl(process.env.CLIENT_URL)) ||
+      (process.env.FRONTEND_URL && cleanOrigin === cleanUrl(process.env.FRONTEND_URL));
 
     if (isAllowed || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
-      callback(new Error(`CORS error: Origin ${origin} not allowed`));
+      callback(null, false);
     }
   },
-  credentials: true
-}));
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Cookie'],
+  optionsSuccessStatus: 200
+};
+
+// CORS Middleware Configuration & Preflight OPTIONS Support
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Request Body & Cookie Parsers
 app.use(express.json());
